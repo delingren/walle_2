@@ -9,6 +9,20 @@
 #define DECODE_NEC // Decodes NEC, NEC2, and ONKYO
 #include "src/IRremote.hpp"
 
+#ifdef abs
+#undef abs
+#endif
+
+template <typename T> T clamp(T v, T low, T high) {
+  if (v < low) {
+    return low;
+  } else if (v > high) {
+    return high;
+  } else {
+    return v;
+  }
+}
+
 void resetIdleCount();
 
 // Pin assignments
@@ -35,46 +49,45 @@ constexpr int maxHead = 2000;
 
 enum AnimationType {
   // Change the value linearly to a target value, over a specified duration
-  LinearTo,
+  LinearToOver,
+  // Change the value linearly to a target value, at a specified speed
+  LinearToAt,
   // Change the value linearly by an increment, over a specified duration
   LinearBy,
   // Maintain the value for a specified duration
   Constant
 };
 
-// TODO: add an option to specify the speed of the animation (fraction per
-// second) instead of duration. We usually want the motion to be smooth at the
-// same speed.
 struct Animation {
   AnimationType type;
-  unsigned long millisDuration;
+  union {
+    unsigned long millisDuration;
+    float speed; // amount per millisecond
+  };
   float value;
 
-  static Animation linearTo(float value, unsigned long duration) {
-    return Animation{.type = AnimationType::LinearTo,
-                     .millisDuration = duration,
-                     .value = value};
+  static Animation linearToOver(float value, unsigned long duration) {
+    return Animation{AnimationType::LinearToOver, {duration}, value};
+  }
+
+  static Animation linearToAt(float value, float speed) {
+    return Animation{AnimationType::LinearToAt, {speed}, value};
   }
 
   static Animation linearBy(float value, unsigned long duration) {
-    return Animation{.type = AnimationType::LinearBy,
-                     .millisDuration = duration,
-                     .value = value};
+    return Animation{AnimationType::LinearBy, {duration}, value};
   }
 
   static Animation instantTo(float value) {
-    return Animation{
-        .type = AnimationType::LinearTo, .millisDuration = 0, .value = value};
+    return Animation{AnimationType::LinearToOver, {0.0f}, value};
   }
 
   static Animation instantBy(float value) {
-    return Animation{
-        .type = AnimationType::LinearBy, .millisDuration = 0, .value = value};
+    return Animation{AnimationType::LinearBy, {0.0f}, value};
   }
 
-  static Animation constant(unsigned long duration) {
-    return Animation{.type = AnimationType::Constant,
-                     .millisDuration = duration};
+  static Animation constantOver(unsigned long duration) {
+    return Animation{AnimationType::Constant, {duration}};
   }
 };
 
@@ -97,19 +110,23 @@ public:
     }
 
     if (animation.type == AnimationType::LinearBy) {
+      // Calculate target value for LinearBy, since the parameter is the
+      // increment, not the target value.
+      constexpr float epsilon = 0.05;
       float valueCurrent = getValue();
-      if (valueCurrent <= 0 && animation.value <= 0 ||
-          valueCurrent >= 1.0 && animation.value >= 0) {
+      float valueTarget = clamp(valueCurrent + animation.value, 0.0f, 1.0f);
+      if (std::abs(valueCurrent - valueTarget) <= epsilon) {
         return;
       }
-      float valueTarget = valueCurrent + animation.value;
-      if (valueTarget > 1.0) {
-        valueTarget = 1.0;
-      }
-      if (valueTarget < 0) {
-        valueTarget = 0;
-      }
-      animation.value = getValue() + animation.value;
+      animation.value = valueTarget;
+    } else if (animation.type == AnimationType::LinearToAt) {
+      // Calculate duration for LinearToAt, since the speed, not the duration,
+      // was given.
+      float valueCurrent = getValue();
+
+      unsigned long duration =
+          std::abs(animation.value - valueCurrent) / animation.speed;
+      animation.millisDuration = duration;
     }
 
     animationQueue.push(animation);
@@ -150,8 +167,10 @@ protected:
 
     Animation animation = animationQueue.front();
     switch (animation.type) {
-    case AnimationType::LinearTo:
+    case AnimationType::LinearToOver:
+    case AnimationType::LinearToAt:
     case AnimationType::LinearBy: {
+      // Target value and duration should've already been calculated.
       float fraction = static_cast<float>(millisNow - millisStart) /
                        static_cast<float>(animation.millisDuration);
       if (fraction >= 1.0) {
@@ -399,18 +418,18 @@ bool isIdling() { return millis() - millisIdleStart >= 10000; }
 void demo() {
   // Hold for 0.5s, look left, right, then straight
   std::array<Animation, 5> headAnimation = {
-      Animation::instantTo(0.5), Animation::constant(500),
-      Animation::linearTo(0, 500), Animation::linearTo(1, 1000),
-      Animation::linearTo(0.5, 500)};
+      Animation::instantTo(0.5), Animation::constantOver(500),
+      Animation::linearToOver(0, 500), Animation::linearToOver(1, 1000),
+      Animation::linearToOver(0.5, 500)};
   head.queueAnimations(headAnimation);
 
   // Hold for 2s, blink twice
   std::array<Animation, 9> eyeAnimation = {
-      Animation::instantTo(1),    Animation::constant(2000),
-      Animation::linearTo(0, 20), Animation::constant(100),
-      Animation::linearTo(1, 20), Animation::constant(300),
-      Animation::linearTo(0, 20), Animation::constant(100),
-      Animation::linearTo(1, 20)};
+      Animation::instantTo(1),        Animation::constantOver(2000),
+      Animation::linearToOver(0, 20), Animation::constantOver(100),
+      Animation::linearToOver(1, 20), Animation::constantOver(300),
+      Animation::linearToOver(0, 20), Animation::constantOver(100),
+      Animation::linearToOver(1, 20)};
   leftEye.queueAnimations(eyeAnimation);
   rightEye.queueAnimations(eyeAnimation);
 
@@ -430,49 +449,49 @@ void playNextAudio() {
 }
 
 void stop() {
-  std::array<Animation, 1> animations = {Animation::linearTo(0, 200)};
+  std::array<Animation, 1> animations = {Animation::linearToOver(0, 200)};
   leftTread.queueAnimations(animations);
   rightTread.queueAnimations(animations);
 }
 
 void spinLeft() {
-  leftTread.queueAnimation(Animation::linearTo(-1, 200));
-  rightTread.queueAnimation(Animation::linearTo(1, 200));
+  leftTread.queueAnimation(Animation::linearToOver(-1, 200));
+  rightTread.queueAnimation(Animation::linearToOver(1, 200));
 }
 
 void spinRight() {
-  leftTread.queueAnimation(Animation::linearTo(1, 200));
-  rightTread.queueAnimation(Animation::linearTo(-1, 200));
+  leftTread.queueAnimation(Animation::linearToOver(1, 200));
+  rightTread.queueAnimation(Animation::linearToOver(-1, 200));
 }
 
 void forward() {
-  leftTread.queueAnimation(Animation::linearTo(1, 200));
-  rightTread.queueAnimation(Animation::linearTo(1, 200));
+  leftTread.queueAnimation(Animation::linearToOver(1, 200));
+  rightTread.queueAnimation(Animation::linearToOver(1, 200));
 }
 
 void backward() {
-  leftTread.queueAnimation(Animation::linearTo(-1, 200));
-  rightTread.queueAnimation(Animation::linearTo(-1, 200));
+  leftTread.queueAnimation(Animation::linearToOver(-1, 200));
+  rightTread.queueAnimation(Animation::linearToOver(-1, 200));
 }
 
 void forwardLeft() {
-  leftTread.queueAnimation(Animation::linearTo(0, 200));
-  rightTread.queueAnimation(Animation::linearTo(1, 200));
+  leftTread.queueAnimation(Animation::linearToOver(0, 200));
+  rightTread.queueAnimation(Animation::linearToOver(1, 200));
 }
 
 void forwardRight() {
-  leftTread.queueAnimation(Animation::linearTo(1, 200));
-  rightTread.queueAnimation(Animation::linearTo(0, 200));
+  leftTread.queueAnimation(Animation::linearToOver(1, 200));
+  rightTread.queueAnimation(Animation::linearToOver(0, 200));
 }
 
 void backwardLeft() {
-  leftTread.queueAnimation(Animation::linearTo(0, 200));
-  rightTread.queueAnimation(Animation::linearTo(-1, 200));
+  leftTread.queueAnimation(Animation::linearToOver(0, 200));
+  rightTread.queueAnimation(Animation::linearToOver(-1, 200));
 }
 
 void backwardRight() {
-  leftTread.queueAnimation(Animation::linearTo(-1, 200));
-  rightTread.queueAnimation(Animation::linearTo(0, 200));
+  leftTread.queueAnimation(Animation::linearToOver(-1, 200));
+  rightTread.queueAnimation(Animation::linearToOver(0, 200));
 }
 
 void leftArmMove(float value) {
@@ -483,51 +502,53 @@ void rightArmMove(float value) {
   rightArm.queueAnimation(Animation::linearBy(value, 100));
 }
 
-void leftArmUp() { leftArm.queueAnimation(Animation::linearTo(1, 1000)); }
+void leftArmUp() { leftArm.queueAnimation(Animation::linearToOver(1, 1000)); }
 
-void leftArmDown() { leftArm.queueAnimation(Animation::linearTo(0, 1000)); }
+void leftArmDown() { leftArm.queueAnimation(Animation::linearToOver(0, 1000)); }
 
-void rightArmUp() { rightArm.queueAnimation(Animation::linearTo(1, 1000)); }
+void rightArmUp() { rightArm.queueAnimation(Animation::linearToOver(1, 1000)); }
 
-void rightArmDown() { rightArm.queueAnimation(Animation::linearTo(0, 1000)); }
+void rightArmDown() {
+  rightArm.queueAnimation(Animation::linearToOver(0, 1000));
+}
 
 void breathe() {
-  std::array<Animation, 2> animations = {Animation::linearTo(0, 2000),
-                                         Animation::linearTo(1, 2000)};
+  std::array<Animation, 2> animations = {Animation::linearToOver(0, 2000),
+                                         Animation::linearToOver(1, 2000)};
   leftEye.queueAnimations(animations);
   rightEye.queueAnimations(animations);
 }
 
 void blinkTwice() {
   std::array<Animation, 7> animations = {
-      Animation::linearTo(0, 20), Animation::constant(100),
-      Animation::linearTo(1, 20), Animation::constant(300),
-      Animation::linearTo(0, 20), Animation::constant(100),
-      Animation::linearTo(1, 20)};
+      Animation::linearToOver(0, 20), Animation::constantOver(100),
+      Animation::linearToOver(1, 20), Animation::constantOver(300),
+      Animation::linearToOver(0, 20), Animation::constantOver(100),
+      Animation::linearToOver(1, 20)};
   leftEye.queueAnimations(animations);
   rightEye.queueAnimations(animations);
 }
 
-void lookLeft() { head.queueAnimation(Animation::linearTo(0, 1000)); }
+void lookLeft() { head.queueAnimation(Animation::linearToOver(0, 1000)); }
 
-void lookRight() { head.queueAnimation(Animation::linearTo(1, 1000)); }
+void lookRight() { head.queueAnimation(Animation::linearToOver(1, 1000)); }
 
-void lookStraight() { head.queueAnimation(Animation::linearTo(0.5, 1000)); }
+void lookStraight() { head.queueAnimation(Animation::linearToOver(0.5, 1000)); }
 
 void tiltEye() {
-  std::array<Animation, 3> animations = {Animation::linearTo(1, 0),
-                                         Animation::linearTo(1, 1600),
-                                         Animation::linearTo(0, 0)};
+  std::array<Animation, 3> animations = {Animation::linearToOver(1, 0),
+                                         Animation::linearToOver(1, 1600),
+                                         Animation::linearToOver(0, 0)};
   eyeTilter.queueAnimations(animations);
 }
 
 void toggleLeftArm() {
   static uint8_t position = 1;
   if (position == 1) {
-    leftArm.queueAnimation(Animation::linearTo(0, 1000));
+    leftArm.queueAnimation(Animation::linearToOver(0, 1000));
     position = 0;
   } else {
-    leftArm.queueAnimation(Animation::linearTo(1, 1000));
+    leftArm.queueAnimation(Animation::linearToOver(1, 1000));
     position = 1;
   }
 }
@@ -535,10 +556,10 @@ void toggleLeftArm() {
 void toggleRightArm() {
   static uint8_t position = 1;
   if (position == 1) {
-    rightArm.queueAnimation(Animation::linearTo(0, 1000));
+    rightArm.queueAnimation(Animation::linearToOver(0, 1000));
     position = 0;
   } else {
-    rightArm.queueAnimation(Animation::linearTo(1, 1000));
+    rightArm.queueAnimation(Animation::linearToOver(1, 1000));
     position = 1;
   }
 }
@@ -546,17 +567,17 @@ void toggleRightArm() {
 void lookAround() {
   // Turn left, right, then straight
   std::array<Animation, 3> animations1 = {
-      Animation::linearTo(0, 700),
-      Animation::linearTo(1, 1400),
-      Animation::linearTo(0.5, 700),
+      Animation::linearToOver(0, 700),
+      Animation::linearToOver(1, 1400),
+      Animation::linearToOver(0.5, 700),
   };
   // Open eyes, hold while turning head, then blink twice
   std::array<Animation, 9> animations2 = {
-      Animation::linearTo(1, 0),  Animation::constant(3000),
-      Animation::linearTo(0, 20), Animation::constant(100),
-      Animation::linearTo(1, 20), Animation::constant(300),
-      Animation::linearTo(0, 20), Animation::constant(100),
-      Animation::linearTo(1, 20)};
+      Animation::linearToOver(1, 0),  Animation::constantOver(3000),
+      Animation::linearToOver(0, 20), Animation::constantOver(100),
+      Animation::linearToOver(1, 20), Animation::constantOver(300),
+      Animation::linearToOver(0, 20), Animation::constantOver(100),
+      Animation::linearToOver(1, 20)};
 
   head.queueAnimations(animations1);
   leftEye.queueAnimations(animations2);

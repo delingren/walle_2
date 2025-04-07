@@ -1,5 +1,4 @@
 {
-    "configuration": "cpu=8MHzatmega328",
-    "board": "arduino:avr:pro",
-    "sketch": "irremote_transmitter/irremote_transmitter.ino"
+    "board": "arduino:mbed_rp2040:pico",
+    "sketch": "main/main.ino"
 }

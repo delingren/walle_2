@@ -4,11 +4,13 @@ There are two independent parts. One for the main toy and one for the remote con
 
 ## Main
 
-The firmware is relatively straight-forward. One thing worth mentioning is animation. When we recieve a command, such as turning the head, we want the operation to be rather smooth. So, instead of setting the position immediately, we animate the transition to the target position. This also applies to the speed of the motors as well as the brightness of the LEDs. So I am defining an `Animatable` class and keep a list of ongoing animations at any moment.
+The firmware is relatively straight-forward. One thing worth mentioning is animation. When we recieve a command, such as turning the head, we want the operation to be rather smooth. So, instead of setting the position immediately, we animate the transition to the target position. Animation is also needed to create breathing patterns in the eyes. This also applies to the speed of the motors so that they accelerate and decelarate smoothly. So I am defining an `Animatable` class and keep a list of ongoing animations at any moment.
 
-Then I have three kinds of animations.
-1. Linear transition to a target state over a duration.
-1. Instantly transition to a target state.
+Then I have these kinds of animations.
+1. Linear transition to a target value over a specified duration.
+1. Linear transition to a target value at at specified speed.
+1. Offset by a specified increment over a specified duration.
+1. Transition to a target value asap.
 1. Maintain a constant value for a duration.
 
 We can of course define other types of animations. But this list should be enough for this simple application. Every time we execute `loop()`, i.e. in each frame, we update all the animation status.

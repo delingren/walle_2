@@ -4,6 +4,8 @@
     "cstdint": "cpp",
     "algorithm": "cpp",
     "array": "cpp",
-    "queue": "cpp"
+    "queue": "cpp",
+    "vector": "cpp",
+    "limits": "cpp"
   }
 }
