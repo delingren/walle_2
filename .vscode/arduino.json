@@ -1,3 +1,4 @@
 {
-    "board": "arduino:avr:pro"
+  "board": "arduino:mbed_rp2040:pico",
+  "sketch": "main/main.ino"
 }
