@@ -52,7 +52,7 @@ void loop() {
 }
 ```
 
-Note that `sendNECRaw()` sends codes that are recognized as  either `9(NEC2)` or `10(ONKYO)`. I suppose these two protocols are more or less the same and cannot be distinguished from the receiver side. The raw code is 32 bits, which is more than enough to encode joystick positions and key presses.
+Note that `sendNECRaw()` sends codes that are recognized as either protocol `9(NEC2)` or protocol `10(ONKYO)`. I suppose these two protocols are more or less the same and cannot be distinguished from the receiver side. The raw code is 32 bits, which is more than enough to encode joystick positions and key presses.
 
 ![ir_prototype](./media/IMG_0908.jpeg)
 
@@ -142,6 +142,14 @@ After some soldering and hot gluing, here are the PCBs with outgoing wires.
 
 And after some drilling and cutting, I've placed the IR LED on the shell, with the resistor soldered to it and `BAT+`.
 ![shell](./media/IMG_0931.jpeg)
+
+Next, let's solder the wires and the transistor to the dev board.
+
+![dev_board](./media/IMG_1009.jpeg)
+
+And voila! We have a custom remote control. After playing with it a little bit, I realized that without a power indicator, it's easy to forget to turn it off. Next time, I'll leave the power LED on the PCB.
+
+![finished](./media/IMG_1010.jpeg)
 
 ## Control Protocol
 I'm using [`sendNECRaw()`](https://github.com/Arduino-IRremote/Arduino-IRremote/blob/fbebc03a4c64a5b158be946eddf5835eedecf1c8/src/ir_NEC.hpp#L230) which can send a raw code of 32 bits at a time, which should be more than enough for a low speed application. I am sending one event in each transmission. The event can be a button push or a joystick position change. Here's the format of the packets.
