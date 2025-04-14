@@ -12,9 +12,12 @@ To do that, there are a few things I need to figure out.
 As mentioned before, I intend to use an 8MHz ATmega328 devboard (Arduino Pro Mini clones), which should be able to run at 3V comofortably. So I am going to prototype everything on that board. One small caveat about working with this board is that ATmega328 comes in two versions: 8Mhz and 16MHz. When programming with Arduino IDE or CLI, we need to choose the correct frequency. Otherwise, the code will still run, but the timing is all messed up. Anything that relies on the frequency will not work properly. E.g. the serial console or the IR transmitter.
 
 ## IR transmitter
-I have some generic 940 nm IR LEDs from Amazon and I intend to use one. These LEDs are rather finicky and direction sensitive. The GPIO pins have enough juice to drive them. But I want to improve the range a little. So I am planning to use a BJT to improve the range, which still doesn't seem to be great after some prototyping. But for a toy project like this, that's OK. I also tried using a MOSFET like 2N7000. I measured the current running through the LED. With the MOSFET, it's quite a bit smaller than with a BJT. So I'll stick with the BJT. As a future improvement, I am planning on using 433 MHz radio frequency transmission, which doesn't require a line of sight. But that's for another day. For now, let's focus on the IR transmission.
+I have some generic 940 nm IR LEDs from Amazon and I intend to use one. These LEDs are rather finicky and very direction sensitive. The GPIO pins have enough juice to drive them. I tried to use a BJT to bump up its wattage. But it turned out that the 3V battery doesn't have enough juice to drive it. Its voltage would drop too much and the MCU would brown out. So I am stuck with the low wattage. It works OK within 1.5 meters and with a line of sight. Otherwise, the reception gets very finicky. There might be some LEDs with a lower voltage drop that would work better at 3V. But for now, I'm happy with what I have. For a future version, there are a couple of changes I want to make:
 
-My first step is to make sure the MCU and the IR transmitter are capable of running on a 3V DC power supply. So I loaded up a simple sketch to send a code every half a second:
+1. Use two 10440 lithium ion batteries (same form factor as AAA batteries) in parallel, to get 3.7-4 V. Add a charging circuit and charging port.
+1. Use 433 MHz radio frequency transmission, which doesn't require a line of sight.
+
+For prototyping, my first step is to make sure the MCU and the IR transmitter are capable of running on a 3V DC power supply. So I loaded up a simple sketch to send a code every half a second:
 
 ```
 #include <IRremote.hpp>
@@ -134,8 +137,7 @@ PCB2 ↔ MCU:
 * `J1`, `J2` ↔ `A0`, `A1`
 
 And,
-* IR LED: `10`. I want to solder the BJT directly to the dev board. Pin `10` is conveniently close to a ground pin. So I can solder two pins of the BJT on the board.
-
+* IR LED: `10`.
 
 After some soldering and hot gluing, here are the PCBs with outgoing wires.
 ![soldered](./media/IMG_0932.jpeg)
@@ -143,7 +145,7 @@ After some soldering and hot gluing, here are the PCBs with outgoing wires.
 And after some drilling and cutting, I've placed the IR LED on the shell, with the resistor soldered to it and `BAT+`.
 ![shell](./media/IMG_0931.jpeg)
 
-Next, let's solder the wires and the transistor to the dev board.
+Next, let's solder the wires to the dev board.
 
 ![dev_board](./media/IMG_1009.jpeg)
 
