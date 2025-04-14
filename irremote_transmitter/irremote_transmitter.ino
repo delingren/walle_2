@@ -1,13 +1,15 @@
 #define NO_LED_FEEDBACK_CODE
+#define DECODE_NEC
 #include <IRremote.hpp>
 #include <Keypad.h>
 
-#define NDEBUG
+// #define NDEBUG
+#undef NDEBUG
 
 #ifdef NDEBUG
 #define DEBUG_OUTPUT(...) Serial.print(__VA_ARGS__)
 #else
-#define DEBUG_OUTPUT(...) void(__VA_ARGS__)
+#define DEBUG_OUTPUT(...)
 #endif
 
 class PushButton {
@@ -113,7 +115,7 @@ private:
   void Send(uint16_t type, uint16_t value) {
     IrSender.sendNECRaw((uint32_t)type << 24 | value);
     // A short delay seems to improve the signal quality.
-    delay(30);
+    delay(40);
   }
 
 public:
@@ -167,7 +169,9 @@ Keypad keypad =
     Keypad(makeKeymap(buttonMatrix), pinsRows, pinsCols, rows, cols);
 
 void setup() {
+#ifdef NDEBUG
   Serial.begin(9600);
+#endif
 
   remote.begin();
 
