@@ -2,7 +2,7 @@
 
 I bought this Wall-E toy made by Thinkway on eBay. Actually I bought a few, all partially  broken. The toy is pretty primitive. It can make some basic moves. But the treads cannot be independently controlled. The arms can go up and down a little too, but not independently. The head can turn. The eyes can tilt a little bit. It only has one motor and it's smartly connected to all those parts with a gearbox to make them move in some ways. But in general, there isn't a high degree of maneuverability. It also has a speaker to make some sounds. When new, it came with an IR remote control. None of the ones I bought still had it.
 
-![wall-e](./media/IMG_0779.jpeg)
+![wall-e](./media/IMG_1013.jpeg)
 
 My plan is to control it with a microcontroller. I already made a v1 but didn't document the project in details. I am also not happy with a few things. So, here's my attempt at improving and simplifying the design. The general idea is to remove the internals and replace them with my own. The objectives are as follows.
 
