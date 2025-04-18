@@ -23,20 +23,6 @@ template <typename T> T clamp(T v, T low, T high) {
   }
 }
 
-#ifdef abs
-#undef abs
-#endif
-
-template <typename T> T clamp(T v, T low, T high) {
-  if (v < low) {
-    return low;
-  } else if (v > high) {
-    return high;
-  } else {
-    return v;
-  }
-}
-
 void resetIdleCount();
 
 // Pin assignments
