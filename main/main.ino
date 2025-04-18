@@ -44,13 +44,15 @@ constexpr int minArmL = 2200;
 constexpr int maxArmL = 450;
 constexpr int minArmR = 700;
 constexpr int maxArmR = 2450;
-constexpr int minHead = 600;
-constexpr int maxHead = 2000;
+constexpr int minHead = 550;
+constexpr int maxHead = 1950;
 
 enum AnimationType {
-  // Change the value linearly to a target value, over a specified duration
+  // Change the value linearly to a target value, over a specified duration, in
+  // milliseconds
   LinearToOver,
-  // Change the value linearly to a target value, at a specified speed
+  // Change the value linearly to a target value, at a specified speed, in
+  // fraction per milleseconds
   LinearToAt,
   // Change the value linearly by an increment, over a specified duration
   LinearBy,
@@ -71,7 +73,7 @@ struct Animation {
   }
 
   static Animation linearToAt(float value, float speed) {
-    return Animation{AnimationType::LinearToAt, {speed}, value};
+    return Animation{AnimationType::LinearToAt, {.speed = speed}, value};
   }
 
   static Animation linearBy(float value, unsigned long duration) {
@@ -79,11 +81,11 @@ struct Animation {
   }
 
   static Animation instantTo(float value) {
-    return Animation{AnimationType::LinearToOver, {0.0f}, value};
+    return Animation{AnimationType::LinearToOver, {0L}, value};
   }
 
   static Animation instantBy(float value) {
-    return Animation{AnimationType::LinearBy, {0.0f}, value};
+    return Animation{AnimationType::LinearBy, {0L}, value};
   }
 
   static Animation constantOver(unsigned long duration) {
@@ -416,16 +418,16 @@ void resetIdleCount() {
 bool isIdling() { return millis() - millisIdleStart >= 10000; }
 
 void demo() {
-  // Hold for 0.5s, look left, right, then straight
+  // Hold, look left, right, then straight
   std::array<Animation, 5> headAnimation = {
-      Animation::instantTo(0.5), Animation::constantOver(500),
-      Animation::linearToOver(0, 500), Animation::linearToOver(1, 1000),
-      Animation::linearToOver(0.5, 500)};
+      Animation::linearToAt(0.5, 0.0005), Animation::constantOver(500),
+      Animation::linearToOver(0, 1000), Animation::linearToOver(1, 2000),
+      Animation::linearToOver(0.5, 1000)};
   head.queueAnimations(headAnimation);
 
-  // Hold for 2s, blink twice
+  // Hold, then blink twice
   std::array<Animation, 9> eyeAnimation = {
-      Animation::instantTo(1),        Animation::constantOver(2000),
+      Animation::instantTo(1),        Animation::constantOver(4500),
       Animation::linearToOver(0, 20), Animation::constantOver(100),
       Animation::linearToOver(1, 20), Animation::constantOver(300),
       Animation::linearToOver(0, 20), Animation::constantOver(100),
@@ -433,7 +435,8 @@ void demo() {
   leftEye.queueAnimations(eyeAnimation);
   rightEye.queueAnimations(eyeAnimation);
 
-  AudioQueue::queueDelay(2000);
+  // Wait, then play walle-e
+  AudioQueue::queueDelay(5000);
   AudioQueue::queuePlay(2);
 }
 
@@ -502,14 +505,14 @@ void rightArmMove(float value) {
   rightArm.queueAnimation(Animation::linearBy(value, 100));
 }
 
-void leftArmUp() { leftArm.queueAnimation(Animation::linearToOver(1, 1000)); }
+void leftArmUp() { leftArm.queueAnimation(Animation::linearToAt(1, 0.001f)); }
 
-void leftArmDown() { leftArm.queueAnimation(Animation::linearToOver(0, 1000)); }
+void leftArmDown() { leftArm.queueAnimation(Animation::linearToAt(0, 0.001f)); }
 
-void rightArmUp() { rightArm.queueAnimation(Animation::linearToOver(1, 1000)); }
+void rightArmUp() { rightArm.queueAnimation(Animation::linearToAt(1, 0.001f)); }
 
 void rightArmDown() {
-  rightArm.queueAnimation(Animation::linearToOver(0, 1000));
+  rightArm.queueAnimation(Animation::linearToAt(0, 0.001f));
 }
 
 void breathe() {
@@ -529,11 +532,11 @@ void blinkTwice() {
   rightEye.queueAnimations(animations);
 }
 
-void lookLeft() { head.queueAnimation(Animation::linearToOver(0, 1000)); }
+void lookLeft() { head.queueAnimation(Animation::linearToAt(0, 0.0005)); }
 
-void lookRight() { head.queueAnimation(Animation::linearToOver(1, 1000)); }
+void lookRight() { head.queueAnimation(Animation::linearToAt(1, 0.0005)); }
 
-void lookStraight() { head.queueAnimation(Animation::linearToOver(0.5, 1000)); }
+void lookStraight() { head.queueAnimation(Animation::linearToAt(0.5, 0.0005)); }
 
 void tiltEye() {
   std::array<Animation, 3> animations = {Animation::linearToOver(1, 0),
